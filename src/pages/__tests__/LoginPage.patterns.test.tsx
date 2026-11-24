@@ -34,18 +34,15 @@
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, describe, expect, it, beforeEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { LoginPage } from '../LoginPage';
-import { WalletProvider } from '../../context/WalletContext';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function renderPage() {
   return render(
     <MemoryRouter>
-      <WalletProvider initialWallet={null}>
-        <LoginPage />
-      </WalletProvider>
+      <LoginPage />
     </MemoryRouter>,
   );
 }
@@ -64,10 +61,6 @@ function getErrorBanner(): HTMLElement {
 function getSubmitBtn(): HTMLElement {
   return screen.getByRole('button', { name: /login|signing in/i });
 }
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
 
 /**
  * Triggers a synthetic form submission that bypasses the real fetch call
@@ -150,7 +143,6 @@ describe('LoginPage — color-blind pattern fills (WCAG 1.4.1 / GrantFox FWC26)'
 
     it('8. button carries lp-btn--pending class while aria-busy="true" (pending)', async () => {
       renderPage();
-      vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => {})));
 
       const emailInput = document.getElementById('emailOrUsername') as HTMLInputElement | null;
       const passwordInput = document.getElementById('password') as HTMLInputElement | null;

@@ -13,13 +13,7 @@
  * origins — never by regex alone.
  */
 const MAX_LENGTH = 512;
-const ALLOWED_PREFIXES = [
-  '/linked-accounts',
-  '/profile',
-  '/settings',
-  '/open-credit',
-  '/dashboard',
-];
+const ALLOWED_PREFIXES = ['/linked-accounts', '/profile', '/settings', '/open-credit'];
 const ROOT_PATH = '/';
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
 

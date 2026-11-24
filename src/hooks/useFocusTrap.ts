@@ -5,13 +5,9 @@ interface UseFocusTrapOptions {
   isActive: boolean;
   /** Ref to the trigger element that opened the modal (for return focus) */
   triggerRef?: React.RefObject<HTMLElement | null>;
-  /** Element to focus when the trap is activated */
-  initialFocusRef?: React.RefObject<HTMLElement | null>;
   /** Callback when Escape is pressed */
   onEscape?: () => void;
 }
-
-const focusTrapStack: symbol[] = [];
 
 /**
  * Query selector for focusable elements within a container.
@@ -37,10 +33,9 @@ const FOCUSABLE_SELECTOR = [
  *
  * Returns a ref to attach to the container element.
  */
-export function useFocusTrap({ isActive, triggerRef, initialFocusRef, onEscape }: UseFocusTrapOptions) {
+export function useFocusTrap({ isActive, triggerRef, onEscape }: UseFocusTrapOptions) {
   const containerRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
-  const trapId = useRef(Symbol('focus-trap'));
   const onEscapeRef = useRef(onEscape);
   onEscapeRef.current = onEscape;
 
@@ -58,10 +53,6 @@ export function useFocusTrap({ isActive, triggerRef, initialFocusRef, onEscape }
     const container = containerRef.current;
     if (!container) return;
 
-    focusTrapStack.push(trapId.current);
-
-    const isTopmostTrap = () => focusTrapStack[focusTrapStack.length - 1] === trapId.current;
-
     // Get all focusable elements
     const getFocusableElements = (): HTMLElement[] => {
       return Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR));
@@ -70,17 +61,16 @@ export function useFocusTrap({ isActive, triggerRef, initialFocusRef, onEscape }
     // Focus the first focusable element when opened
     let focusTimer: ReturnType<typeof setTimeout> | null = null;
     const focusableElements = getFocusableElements();
-    const initialFocus = initialFocusRef?.current ?? focusableElements[0];
-    if (initialFocus) {
+    if (focusableElements.length > 0) {
       // Small delay to ensure DOM is ready
       focusTimer = setTimeout(() => {
-        if (isTopmostTrap() && initialFocus.isConnected) initialFocus.focus();
+        focusableElements[0].focus();
       }, 50);
     }
 
     // Handle Tab key to trap focus
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (!isTopmostTrap() || event.key !== 'Tab') return;
+      if (event.key !== 'Tab') return;
 
       const elements = getFocusableElements();
       if (elements.length === 0) return;
@@ -105,7 +95,7 @@ export function useFocusTrap({ isActive, triggerRef, initialFocusRef, onEscape }
 
     // Handle Escape key
     const handleEscape = (event: KeyboardEvent) => {
-      if (isTopmostTrap() && event.key === 'Escape' && onEscapeRef.current) {
+      if (event.key === 'Escape' && onEscapeRef.current) {
         event.preventDefault();
         onEscapeRef.current();
       }
@@ -120,27 +110,23 @@ export function useFocusTrap({ isActive, triggerRef, initialFocusRef, onEscape }
       }
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('keydown', handleEscape);
-      const wasTopmost = isTopmostTrap();
-      const trapIndex = focusTrapStack.lastIndexOf(trapId.current);
-      if (trapIndex >= 0) focusTrapStack.splice(trapIndex, 1);
-      if (wasTopmost) {
-        const trigger = triggerRef?.current;
-        const previousElement = previousActiveElement.current;
-        const returnTarget = trigger?.isConnected
-          ? trigger
-          : previousElement?.isConnected
-            ? previousElement
-            : document.querySelector<HTMLElement>('main');
+    };
+  }, [isActive]);
 
-        if (returnTarget) {
-          if (returnTarget.tagName.toLowerCase() === 'main' && !returnTarget.hasAttribute('tabindex')) {
-            returnTarget.tabIndex = -1;
-          }
-          returnTarget.focus();
-        }
+  // Return focus to trigger or previous element on close or unmount
+  useEffect(() => {
+    if (!isActive) return; // only set up return-focus when active
+
+    return () => {
+      // Cleanup runs when isActive goes false → true or on unmount
+      if (triggerRef?.current) {
+        triggerRef.current.focus();
+      } else if (previousActiveElement.current) {
+        previousActiveElement.current.focus();
       }
     };
-  }, [initialFocusRef, isActive, triggerRef]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive]);
 
   return containerRef;
 }

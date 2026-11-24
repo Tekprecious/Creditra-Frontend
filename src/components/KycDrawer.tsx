@@ -8,14 +8,16 @@
  *
  * Accessibility:
  *   role="dialog", aria-modal="true", aria-labelledby
- *   Focus trap, scroll lock, and inert backdrop are managed by the Sheet primitive.
+ *   Full focus trap (useFocusTrap), scroll lock, inert backdrop
  *   Step icons: aria-hidden, status communicated via text + colour + shape
  *   Progress bar: role="progressbar" with valuenow/valuemin/valuemax
  *   WCAG 2.1 AA: 1.4.1, 2.1.1, 2.4.3, 4.1.2
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { useKyc } from '../context/KycContext';
-import { Sheet } from './Sheet';
+import { useFocusTrap } from '../hooks/useFocusTrap';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useInertBackdrop } from '../hooks/useInertBackdrop';
 import type { KycOverallStatus, KycStep, KycStepStatus } from '../types/kyc';
 import './KycDrawer.css';
 
@@ -123,6 +125,10 @@ export function KycDrawer({ isOpen, onClose, onResume, triggerRef }: KycDrawerPr
   const [showStickyActions, setShowStickyActions] = useState(false);
   const bodyRef = useRef<HTMLElement | null>(null);
 
+  const containerRef = useFocusTrap({ isActive: isOpen, triggerRef, onEscape: onClose });
+  useBodyScrollLock({ isLocked: isOpen });
+  useInertBackdrop({ isInert: isOpen, modalId: DRAWER_ID });
+
   useEffect(() => {
     if (!isOpen) {
       setShowStickyActions(false);
@@ -144,6 +150,8 @@ export function KycDrawer({ isOpen, onClose, onResume, triggerRef }: KycDrawerPr
     };
   }, [isOpen]);
 
+  if (!isOpen) return null;
+
   const totalSteps     = steps.length;
   const progressPct    = totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0;
   const canResume      = resumeStepId !== null;
@@ -159,19 +167,24 @@ export function KycDrawer({ isOpen, onClose, onResume, triggerRef }: KycDrawerPr
   };
 
   return (
-    <Sheet
-      isOpen={isOpen}
-      side="right"
-      portalId={DRAWER_ID}
-      ariaLabelledBy="kyc-drawer-title"
-      ariaDescribedBy="kyc-drawer-desc"
-      onClose={onClose}
-      triggerRef={triggerRef}
-      portalClassName="kyc-drawer-portal"
-      backdropClassName="kyc-drawer-backdrop"
-      panelClassName="kyc-drawer"
-    >
-      <>
+    <div id={DRAWER_ID} className="kyc-drawer-portal">
+      {/* Backdrop */}
+      <div
+        className="kyc-drawer-backdrop"
+        aria-hidden="true"
+        onClick={onClose}
+      />
+
+      {/* Panel */}
+      <div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="kyc-drawer-title"
+        aria-describedby="kyc-drawer-desc"
+        className="kyc-drawer"
+        onKeyDown={e => { if (e.key === 'Escape') onClose(); }}
+      >
         {/* ── Header ── */}
         <div className="kyc-drawer__header">
           <div className="kyc-drawer__header-text">
@@ -299,8 +312,8 @@ export function KycDrawer({ isOpen, onClose, onResume, triggerRef }: KycDrawerPr
             Need help with verification?
           </a>
         </div>
-      </>
-    </Sheet>
+      </div>
+    </div>
   );
 }
 

@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useKyc } from '../context/KycContext';
-import { Sheet } from './Sheet';
+import { useFocusTrap } from '../hooks/useFocusTrap';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useInertBackdrop } from '../hooks/useInertBackdrop';
 import type { KycOverallStatus, KycStep, KycStepStatus } from '../types/kyc';
 import './KycBottomSheet.css';
 
@@ -94,6 +96,10 @@ export function KycBottomSheet({ isOpen, onClose, onResume, triggerRef }: KycBot
   const dragStartY = useRef(0);
   const dragInitialOffset = useRef(0);
 
+  const containerRef = useFocusTrap({ isActive: isOpen, triggerRef, onEscape: onClose });
+  useBodyScrollLock({ isLocked: isOpen });
+  useInertBackdrop({ isInert: isOpen, modalId: SHEET_ID });
+
   useEffect(() => {
     if (isOpen) {
       setDragOffset(0);
@@ -149,6 +155,8 @@ export function KycBottomSheet({ isOpen, onClose, onResume, triggerRef }: KycBot
     };
   }, [isDragging, dragOffset]);
 
+  if (!isOpen) return null;
+
   const totalSteps  = steps.length;
   const progressPct = totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0;
   const canResume   = resumeStepId !== null;
@@ -169,20 +177,25 @@ export function KycBottomSheet({ isOpen, onClose, onResume, triggerRef }: KycBot
   }
 
   return (
-    <Sheet
-      isOpen={isOpen}
-      side="bottom"
-      portalId={SHEET_ID}
-      ariaLabelledBy="kyc-sheet-title"
-      ariaDescribedBy="kyc-sheet-desc"
-      onClose={onClose}
-      triggerRef={triggerRef}
-      portalClassName="kyc-sheet-portal"
-      backdropClassName="kyc-sheet-backdrop"
-      panelClassName={`kyc-sheet ${isDragging ? 'kyc-sheet--dragging' : ''}`}
-      panelStyle={sheetStyle}
-    >
-      <>
+    <div id={SHEET_ID} className="kyc-sheet-portal">
+      <div
+        className="kyc-sheet-backdrop"
+        aria-hidden="true"
+        onClick={onClose}
+      />
+
+      <div
+        ref={(el) => {
+          (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+        }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="kyc-sheet-title"
+        aria-describedby="kyc-sheet-desc"
+        className={`kyc-sheet ${isDragging ? 'kyc-sheet--dragging' : ''}`}
+        style={sheetStyle}
+        onKeyDown={e => { if (e.key === 'Escape') onClose(); }}
+      >
         <div
           className="kyc-sheet__drag-handle"
           role="presentation"
@@ -314,7 +327,7 @@ export function KycBottomSheet({ isOpen, onClose, onResume, triggerRef }: KycBot
             Need help with verification?
           </a>
         </div>
-      </>
-    </Sheet>
+      </div>
+    </div>
   );
 }
